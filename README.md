@@ -41,14 +41,33 @@ Ten characters are used, ordered by approximate ink coverage:
 
 ### 4. Floyd-Steinberg dithering
 
-The 10-level quantisation produces visible banding. Floyd-Steinberg error diffusion distributes the quantisation error to neighbouring pixels (left-to-right, top-to-bottom scan):
+A 10-level character set (`@ % # * + - = : . <space>`) can only represent 10 discrete luminance levels. Without dithering, smooth gradients break into visible contour bands. Floyd-Steinberg error diffusion fixes this by distributing quantisation error to neighbouring pixels, preserving the original image's perceived brightness.
+
+**How it works**
+
+Each pixel is processed left-to-right, top-to-bottom. For a pixel at position `(x, y)`:
+
+1. Map its luminance (0-65535) to the nearest character index (0-9).
+2. Compute the quantisation error: the difference between the original luminance and the luminance that the chosen character actually represents.
+3. Spread this error to four neighbours that haven't been processed yet:
 
 ```
-          x    7/16
-   3/16  5/16  1/16
+           x    7/16     (pixel to the right)
+    3/16  5/16  1/16     (bottom-left, bottom, bottom-right)
 ```
 
-The error at each pixel is spread to the right, bottom-left, bottom, and bottom-right neighbours. This preserves the perceived brightness of the original image despite the limited character set.
+The coefficients (7, 3, 5, 1) sum to 16, so total image brightness is conserved. Each neighbour's luminance value is adjusted by `error * coefficient / 16` before it is processed.
+
+**Example**
+
+A pixel with luminance 40000 maps to character `*` (which represents luminance 43690). The error is `40000 - 43690 = -3690`. This error is distributed:
+
+- Pixel `(x+1, y)` gets `-3690 * 7/16 ≈ -1614` added to its luminance
+- Pixel `(x-1, y+1)` gets `-3690 * 3/16 ≈ -692`
+- Pixel `(x, y+1)` gets `-3690 * 5/16 ≈ -1153`
+- Pixel `(x+1, y+1)` gets `-3690 * 1/16 ≈ -231`
+
+This error diffusion means the local average of quantised pixels closely matches the original continuous-tone image, producing smooth gradients instead of banding.
 
 ## Install
 
